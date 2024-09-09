@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE PLUGIN [
+  <!ENTITY name            "oh-my-zsh">
+  <!ENTITY author          "donbuehl">
+  <!ENTITY version         "2024.09.08">
+  <!ENTITY launch          "Settings/&name;">
+  <!ENTITY plugDir         "/usr/local/emhttp/plugins/&name;">
+  <!ENTITY githubUsername  "&author;">
+  <!ENTITY github          "https://raw.githubusercontent.com/&githubUsername;/&name;/main">
+  <!ENTITY pluginURL       "&github;/&name;.plg">
+  <!ENTITY flash           "&name;-&version;.txz">
+  <!ENTITY pluginDir       "/boot/config/plugins/&name;">
+]>
+<PLUGIN name="&name;" author="&author;" launch="&launch;" version="&version;" pluginURL="&pluginURL;">
+  <CHANGES>
+    ###2024.09.08
+    - initial release for unRAID v7.0.0
+    
+  </CHANGES>
+
+  <FILE Name="&pluginDir;/&flash;" Run="upgradepkg --install-new --reinstall">
+    <URL>&github;/archive/&flash;</URL>
+    <MD5>7e40b3a4248e8446fc0da23c669ea061</MD5>
+  </FILE>
+
+  <FILE Name="&pluginDir;/slack_pkg_mgr.sh" Run="/bin/bash">
+    <INLINE>
+      <![CDATA[
+      #!/bin/bash
+      
+      DOWNLOAD_DIR="/boot/extra"
+      SLACKWARE_URL="https://slackware.uk/slackware/slackware64-current/slackware64/ap/"
+      
+      version_gt() { 
+          test "$(echo "$@" | tr " " "\n" | sort -V | head -n 1)" != "$1"
+      }
+      
+      extract_version() {
+          echo "$1" | grep -oP '\d+(\.\d+)+'
+      }
+      
+      get_latest_version() {
+          local package=$1
+          local latest_version=$(curl -s $SLACKWARE_URL | grep -oP "${package}-[0-9.]+-(x86_64|noarch)-[0-9]+\.txz" | sort -V | tail -n1)
+          if [ -z "$latest_version" ]; then
+              echo "Error: No version of $package found"
+              return 1
+          fi
+          echo "$latest_version"
+      }
+      
+      check_package_exists() {
+          local package=$1
+          local existing_file=$(ls ${DOWNLOAD_DIR}/${package}-*.txz 2>/dev/null | head -n1)
+          if [ -n "$existing_file" ] && [ -f "$existing_file" ]; then
+              echo "$existing_file"
+          else
+              echo ""
+          fi
+      }
+      
+      install_package() {
+          local package=$1
+          local latest_version=$(get_latest_version $package)
+          if [ $? -ne 0 ]; then
+              echo "Error: Failed to get latest version of $package"
+              return 1
+          fi
+          echo "Installing $latest_version"
+          wget -P "$DOWNLOAD_DIR" "${SLACKWARE_URL}${latest_version}"
+          if [ $? -eq 0 ]; then
+              installpkg "${DOWNLOAD_DIR}/${latest_version}"
+          else
+              echo "Error: Failed to download $latest_version"
+              return 1
+          fi
+      }
+      
+      check_version() {
+          local existing_file=$1
+          local latest_version=$2
+          local existing_version=$(extract_version "$(basename "$existing_file")")
+          local new_version=$(extract_version "$latest_version")
+          if version_gt "$new_version" "$existing_version"; then
+              echo "newer"
+          else
+              echo "current"
+          fi
+      }
+      
+      delete_package() {
+          local file=$1
+          rm "$file"
+      }
+      
+      check_root() {
+          if [ "$EUID" -ne 0 ]; then
+              echo "Error: This script must be run as root"
+              exit 1
+          fi
+      }
+      
+      main() {
+          check_root
+      
+          local packages=("zsh" "tmux")
+          for package in "${packages[@]}"; do
+              echo "Processing $package..."
+              local existing_file=$(check_package_exists "$package")
+              
+              if [ -z "$existing_file" ]; then
+                  install_package "$package"
+              else
+                  local latest_version=$(get_latest_version $package)
+                  local version_status=$(check_version "$existing_file" "$latest_version")
+                  if [ "$version_status" = "newer" ]; then
+                      delete_package "$existing_file"
+                      install_package "$package"
+                  else
+                      echo "The existing version of $package is up to date. No action required."
+                  fi
+              fi
+              echo "------------------------"
+          done
+          
+          echo "Process completed"
+      }
+      
+      main
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Name="&pluginDir;/.zshrc">
+    <INLINE>
+      <![CDATA[
+      export ZSH="/root/.oh-my-zsh"
+      ZSH_THEME="PureUnraid"
+      ENABLE_CORRECTION="true"
+      CORRECT_IGNORE="[_|.]*"
+      plugins=(git docker copypath copyfile copybuffer dirhistory zsh-autosuggestions zsh-syntax-highlighting sudo history tmux)
+      zstyle ':omz:update' mode auto
+      source $ZSH/oh-my-zsh.sh
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Run="/bin/bash">
+    <INLINE>
+      <![CDATA[
+      #!/bin/bash
+      
+      PLUGIN_DIR="/boot/config/plugins/oh-my-zsh"
+      
+      prepare_slackware_packages() {
+          sh slack_pkg_mgr.sh
+      }
+      
+      install_oh_my_zsh() {
+          export RUNZSH=no
+          export KEEP_ZSHRC=yes
+          ZSH="$PLUGIN_DIR/.oh-my-zsh" sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+          echo "oh-my-zsh installed"
+      }
+      
+      install_plugins() {
+          git clone https://github.com/zsh-users/zsh-autosuggestions "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+          echo "zsh-autosuggestions plugin installed"
+          
+          git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+          echo "zsh-syntax-highlighting plugin installed"
+      }
+      
+      
+      create_history_file() {
+          touch "$PLUGIN_DIR/.zsh_history"
+          echo "Empty .zsh_history file created"
+      }
+      
+      set_permissions() {
+          chmod 755 "$PLUGIN_DIR" "$PLUGIN_DIR/.oh-my-zsh"
+          chmod 755 "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-autosuggestions" "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+          chmod 644 "$PLUGIN_DIR/.zshrc" "$PLUGIN_DIR/.oh-my-zsh/custom/themes/PureUnraid.zsh-theme"
+          chmod 600 "$PLUGIN_DIR/.zsh_history"
+          echo "Permissions set for all files and newly installed plugins"
+      }
+      
+      restart_ttyd() {
+          pidof ttyd | xargs -r kill && ttyd -p 7681 -i lo zsh &
+          echo "ttyd restarted"
+      }
+      
+      main() {
+          prepare_slackware_packages
+          install_oh_my_zsh
+          create_theme
+          install_plugins
+          rewrite_zshrc
+          create_history_file
+          set_permissions
+          echo "Installation completed. Please run the start_ohmyzsh.sh script on the next system startup."
+      }
+      
+      main
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Name="&pluginDir;/.oh-my-zsh/custom/themes/PureUnraid.zsh-theme">
+    <INLINE>
+      <![CDATA[
+      local return_code="%(?..%F{red}%? %f)"
+      
+      PROMPT='%F{208}{ %c } %F{green}$(git rev-parse --abbrev-ref HEAD 2> /dev/null || echo "")%f %F{yellow}%(!.⚡.»)%f '
+      
+      PROMPT2='%F{yellow}\\ %f'
+      
+      RPS1='%F{white}%~%f ${return_code}'
+      
+      ZSH_THEME_GIT_PROMPT_PREFIX="%f:: %F{cyan}("
+      ZSH_THEME_GIT_PROMPT_SUFFIX=")%f "
+      ZSH_THEME_GIT_PROMPT_CLEAN=""
+      ZSH_THEME_GIT_PROMPT_DIRTY="%F{red}*%F{cyan}"   
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Run="/bin/bash">
+    <INLINE>
+      <![CDATA[
+      #!/bin/bash
+      
+      PLUGIN_DIR="/boot/config/plugins/oh-my-zsh"
+      
+      create_symlink() {
+          local source=$1
+          local destination=$2
+      
+          if [ -e "$destination" ] || [ -L "$destination" ]; then
+              echo "Destination $destination already exists. Removing it."
+              rm -rf "$destination"
+          fi
+      
+          if [ -d "$source" ]; then
+              ln -s "$source" "$destination"
+          else
+              ln -sf "$source" "$destination"
+          fi
+          echo "Created symlink: $destination -> $source"
+      }
+      
+      check_required_programs() {
+          for program in tmux zsh; do
+              if ! command -v $program &> /dev/null; then
+                  echo "Error: $program is not installed. Please ensure it's in /boot/extra as a .txz package."
+                  exit 1
+              fi
+          done
+          echo "All required programs are installed."
+      }
+      
+      check_required_files() {
+          if [ ! -d "$PLUGIN_DIR/.oh-my-zsh" ] || [ ! -f "$PLUGIN_DIR/.zshrc" ]; then
+              echo "Error: Required files not found in $PLUGIN_DIR"
+              exit 1
+          fi
+      }
+      
+      ensure_prerequisites() {
+          check_required_programs
+          check_required_files
+      }
+      
+      setup() {
+          echo "Setting up Zsh for root"
+      
+          create_symlink "$PLUGIN_DIR/.oh-my-zsh" "/root/.oh-my-zsh"
+          create_symlink "$PLUGIN_DIR/.zshrc" "/root/.zshrc"
+          create_symlink "$PLUGIN_DIR/.zsh_history" "/root/.zsh_history"
+      
+          if ! grep -q "/bin/zsh" /etc/passwd | grep "root"; then
+              if ! chsh -s /bin/zsh root; then
+                  echo "Failed to change shell for root"
+              else
+                  echo "Successfully changed shell to Zsh for root"
+              fi
+          else
+              echo "Shell is already set to Zsh for root"
+          fi
+      }
+      
+      set_zsh_for_webterminal_ttyd() {
+          local openterminal_path="/usr/local/emhttp/plugins/dynamix/include/OpenTerminal.php"
+          
+          if [ -f "$openterminal_path" ]; then
+              echo "Updating OpenTerminal.php to use Zsh..."
+              sed -i '/ttyd-exec.*bash --login/s/bash/" . posix_getpwuid(0)['\''shell'\''] . "/' "$openterminal_path"
+              
+              if grep -q "ttyd-exec.*posix_getpwuid(0)\['shell'\].*--login" "$openterminal_path"; then
+                  echo "OpenTerminal.php updated successfully."
+              else
+                  echo "Warning: Failed to update OpenTerminal.php. Please check the file manually."
+              fi
+          else
+              echo "Warning: OpenTerminal.php not found at $openterminal_path"
+          fi
+      }
+      
+      main() {
+          ensure_prerequisites
+          setup
+          set_zsh_for_webterminal_ttyd
+          echo "zsh, oh-my-sh setup, and WebTerminal-ttyd update completed successfully."
+      
+          # to restart ttyd:
+          # pidof ttyd | xargs -r kill && ttyd -p 7681 -i lo zsh &
+      }
+      
+      main
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Run="/bin/bash">
+    <INLINE>
+      <![CDATA[
+      echo ""
+      echo "-----------------------------------------------------------"
+      echo " Plugin &name; is installed."
+      echo " Copyright 2024, &author;"
+      echo " Version: &version;"
+      echo "-----------------------------------------------------------"
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Method="remove" Run="/bin/bash">
+    <INLINE>
+      <![CDATA[
+      # Remove script here
+      removepkg &name;-&version;
+      rm -rf &plugDir;
+      rm -f &pluginDir;/&flash
+      ]]>
+    </INLINE>
+  </FILE>
+</PLUGIN>
