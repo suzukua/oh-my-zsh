@@ -11,7 +11,7 @@
   <!ENTITY flash           "&name;-&version;.txz">
   <!ENTITY pluginDir       "/boot/config/plugins/&name;">
 ]>
-<PLUGIN Name="&name;" Author="&author;" Launch="&launch;" Version="&version;" Pluginurl="&pluginURL;">
+<PLUGIN name="&name;" author="&author;" launch="&launch;" version="&version;" pluginURL="&pluginURL;">
   <CHANGES>
     ###2024.09.08
     - initial release for unRAID v7.0.0
@@ -136,12 +136,12 @@
     <INLINE>
       <![CDATA[
       export ZSH="/root/.oh-my-zsh"
-      ZSH_THEME="$DEFAULT_THEME"
+      ZSH_THEME="PureUnraid"
       ENABLE_CORRECTION="true"
       CORRECT_IGNORE="[_|.]*"
-      plugins=($DEFAULT_PLUGINS)
+      plugins=(git docker copypath copyfile copybuffer dirhistory zsh-autosuggestions zsh-syntax-highlighting sudo history tmux)
       zstyle ':omz:update' mode auto
-      source \$ZSH/oh-my-zsh.sh
+      source $ZSH/oh-my-zsh.sh
       ]]>
       
     </INLINE>
@@ -153,8 +153,6 @@
       #!/bin/bash
       
       PLUGIN_DIR="/boot/config/plugins/oh-my-zsh"
-      DEFAULT_THEME="PureUnraid"
-      DEFAULT_PLUGINS="git docker copypath copyfile copybuffer dirhistory zsh-autosuggestions zsh-syntax-highlighting sudo history tmux"
       
       prepare_slackware_packages() {
           sh slack_pkg_mgr.sh
@@ -300,9 +298,9 @@
           
           if [ -f "$openterminal_path" ]; then
               echo "Updating OpenTerminal.php to use Zsh..."
-              sed -i '/ttyd-exec.*bash --login/s/bash/" . posix_getpwuid(0)['shell'] . "/' "$openterminal_path"
+              sed -i '/ttyd-exec.*bash --login/s/bash/" . posix_getpwuid(0)[\'shell\'] . "/' "$openterminal_path"
               
-              if grep -q "ttyd-exec.*posix_getpwuid(0)\[shell\].*--login" "$openterminal_path"; then
+              if grep -q "ttyd-exec.*posix_getpwuid(0)\[\'shell\'\].*--login" "$openterminal_path"; then
                   echo "OpenTerminal.php updated successfully."
               else
                   echo "Warning: Failed to update OpenTerminal.php. Please check the file manually."
