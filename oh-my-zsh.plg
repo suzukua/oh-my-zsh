@@ -2,27 +2,30 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name            "oh-my-zsh">
   <!ENTITY author          "donbuehl">
-  <!ENTITY version         "2024.08.30">
-  <!ENTITY launch          "Settings/oh-my-zsh">
+  <!ENTITY version         "2024.09.08">
+  <!ENTITY launch          "Settings/&name;">
   <!ENTITY plugDir         "/usr/local/emhttp/plugins/&name;">
   <!ENTITY githubUsername  "&author;">
   <!ENTITY github          "https://raw.githubusercontent.com/&githubUsername;/&name;/main">
   <!ENTITY pluginURL       "&github;/&name;.plg">
   <!ENTITY flash           "&name;-&version;.txz">
+  <!ENTITY pluginDir       "/boot/config/plugins/&name;">
 ]>
-<PLUGIN name="&name;" author="&author;" launch="&launch;" version="&version;" pluginURL="&pluginURL;" support="&supportURL;">
+<PLUGIN Name="&name;" Author="&author;" Launch="&launch;" Version="&version;" Pluginurl="&pluginURL;">
   <CHANGES>
     ###2024.09.08
     - initial release for unRAID v7.0.0
     
   </CHANGES>
 
-  <FILE name="/boot/config/plugins/&name;/&flash;" run="upgradepkg --install-new --reinstall" mode="0644" owner="root" group="root">
+  <FILE Name="&pluginDir;/&flash;" Run="upgradepkg --install-new --reinstall">
     <URL>&github;/archive/&flash;</URL>
+    <MD5>fedb7ed8a03b733ffa28c62d0aa8a45c</MD5>
   </FILE>
 
-  <FILE name="/boot/config/plugins/&name;/slack_pkg_mgr.sh" run="/bin/bash">
+  <FILE Name="&pluginDir;/slack_pkg_mgr.sh" Run="/bin/bash">
     <INLINE>
+      <![CDATA[
       #!/bin/bash
       
       DOWNLOAD_DIR="/boot/extra"
@@ -124,15 +127,116 @@
       }
       
       main
+      ]]>
       
     </INLINE>
   </FILE>
 
-  <FILE method="startup">
+  <FILE Name="&pluginDir;/.zshrc">
     <INLINE>
+      <![CDATA[
+      export ZSH="/root/.oh-my-zsh"
+      ZSH_THEME="$DEFAULT_THEME"
+      ENABLE_CORRECTION="true"
+      CORRECT_IGNORE="[_|.]*"
+      plugins=($DEFAULT_PLUGINS)
+      zstyle ':omz:update' mode auto
+      source \$ZSH/oh-my-zsh.sh
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Run="/bin/bash">
+    <INLINE>
+      <![CDATA[
       #!/bin/bash
       
-      PLUGIN_DIR="/boot/config/plugins/OhMyZSH"
+      PLUGIN_DIR="/boot/config/plugins/oh-my-zsh"
+      DEFAULT_THEME="PureUnraid"
+      DEFAULT_PLUGINS="git docker copypath copyfile copybuffer dirhistory zsh-autosuggestions zsh-syntax-highlighting sudo history tmux"
+      
+      prepare_slackware_packages() {
+          sh slack_pkg_mgr.sh
+      }
+      
+      install_oh_my_zsh() {
+          export RUNZSH=no
+          export KEEP_ZSHRC=yes
+          ZSH="$PLUGIN_DIR/.oh-my-zsh" sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+          echo "oh-my-zsh installed"
+      }
+      
+      install_plugins() {
+          git clone https://github.com/zsh-users/zsh-autosuggestions "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+          echo "zsh-autosuggestions plugin installed"
+          
+          git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+          echo "zsh-syntax-highlighting plugin installed"
+      }
+      
+      
+      create_history_file() {
+          touch "$PLUGIN_DIR/.zsh_history"
+          echo "Empty .zsh_history file created"
+      }
+      
+      set_permissions() {
+          chmod 755 "$PLUGIN_DIR" "$PLUGIN_DIR/.oh-my-zsh"
+          chmod 755 "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-autosuggestions" "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+          chmod 644 "$PLUGIN_DIR/.zshrc" "$PLUGIN_DIR/.oh-my-zsh/custom/themes/PureUnraid.zsh-theme"
+          chmod 600 "$PLUGIN_DIR/.zsh_history"
+          echo "Permissions set for all files and newly installed plugins"
+      }
+      
+      restart_ttyd() {
+          pidof ttyd | xargs -r kill && ttyd -p 7681 -i lo zsh &
+          echo "ttyd restarted"
+      }
+      
+      main() {
+          prepare_slackware_packages
+          install_oh_my_zsh
+          create_theme
+          install_plugins
+          rewrite_zshrc
+          create_history_file
+          set_permissions
+          echo "Installation completed. Please run the start_ohmyzsh.sh script on the next system startup."
+      }
+      
+      main
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Name="&pluginDir;/.oh-my-zsh/custom/themes/PureUnraid.zsh-theme">
+    <INLINE>
+      <![CDATA[
+      local return_code="%(?..%F{red}%? %f)"
+      
+      PROMPT='%F{208}{ %c } %F{green}$(git rev-parse --abbrev-ref HEAD 2> /dev/null || echo "")%f %F{yellow}%(!.⚡.»)%f '
+      
+      PROMPT2='%F{yellow}\\ %f'
+      
+      RPS1='%F{white}%~%f ${return_code}'
+      
+      ZSH_THEME_GIT_PROMPT_PREFIX="%f:: %F{cyan}("
+      ZSH_THEME_GIT_PROMPT_SUFFIX=")%f "
+      ZSH_THEME_GIT_PROMPT_CLEAN=""
+      ZSH_THEME_GIT_PROMPT_DIRTY="%F{red}*%F{cyan}"   
+      ]]>
+      
+    </INLINE>
+  </FILE>
+
+  <FILE Run="/bin/bash">
+    <INLINE>
+      <![CDATA[
+      #!/bin/bash
+      
+      PLUGIN_DIR="/boot/config/plugins/oh-my-zsh"
       
       create_symlink() {
           local source=$1
@@ -198,7 +302,7 @@
               echo "Updating OpenTerminal.php to use Zsh..."
               sed -i '/ttyd-exec.*bash --login/s/bash/" . posix_getpwuid(0)['shell'] . "/' "$openterminal_path"
               
-              if grep -q 'ttyd-exec.*" . posix_getpwuid(0)['shell'] . " --login' "$openterminal_path"; then
+              if grep -q "ttyd-exec.*posix_getpwuid(0)\[shell\].*--login" "$openterminal_path"; then
                   echo "OpenTerminal.php updated successfully."
               else
                   echo "Warning: Failed to update OpenTerminal.php. Please check the file manually."
@@ -212,116 +316,40 @@
           ensure_prerequisites
           setup
           set_zsh_for_webterminal_ttyd
-          echo "Zsh, Oh My Zsh setup, and WebTerminal-ttyd update completed successfully."
+          echo "zsh, oh-my-sh setup, and WebTerminal-ttyd update completed successfully."
       
-          # Zum Neustarten von ttyd:
+          # to restart ttyd:
           # pidof ttyd | xargs -r kill && ttyd -p 7681 -i lo zsh &
       }
       
       main
+      ]]>
       
     </INLINE>
   </FILE>
 
-  <FILE method="install">
+  <FILE Run="/bin/bash">
     <INLINE>
-      #!/bin/bash
-      
-      PLUGIN_DIR="/boot/config/plugins/OhMyZSH"
-      DEFAULT_THEME="PureUnraid"
-      DEFAULT_PLUGINS="git copypath copyfile copybuffer dirhistory zsh-autosuggestions zsh-syntax-highlighting sudo history tmux"
-      
-      prepare_slackware_packages() {
-          sh slack_pkg_mgr.sh
-      }
-      
-      install_oh_my_zsh() {
-          export RUNZSH=no
-          export KEEP_ZSHRC=yes
-          ZSH="$PLUGIN_DIR/.oh-my-zsh" sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          echo "Oh My Zsh installed"
-      }
-      
-      create_theme() {
-          cat << "EOF" > "$PLUGIN_DIR/.oh-my-zsh/custom/themes/PureUnraid.zsh-theme"
-      local return_code="%(?..%F{red}%? %f)"
-      
-      PROMPT='%F{208}{ %c } %F{green}$(git rev-parse --abbrev-ref HEAD 2> /dev/null || echo "")%f %F{yellow}%(!.⚡.»)%f '
-      
-      PROMPT2='%F{yellow}\\ %f'
-      
-      RPS1='%F{white}%~%f ${return_code}'
-      
-      ZSH_THEME_GIT_PROMPT_PREFIX="%f:: %F{cyan}("
-      ZSH_THEME_GIT_PROMPT_SUFFIX=")%f "
-      ZSH_THEME_GIT_PROMPT_CLEAN=""
-      ZSH_THEME_GIT_PROMPT_DIRTY="%F{red}*%F{cyan}"
-      EOF
-          echo "PureUnraid theme created"
-      }
-      
-      install_plugins() {
-          git clone https://github.com/zsh-users/zsh-autosuggestions "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
-          echo "zsh-autosuggestions plugin installed"
-          
-          git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
-          echo "zsh-syntax-highlighting plugin installed"
-      }
-      
-      rewrite_zshrc() {
-          cat << EOF > "$PLUGIN_DIR/.zshrc"
-      export ZSH="/root/.oh-my-zsh"
-      ZSH_THEME="$DEFAULT_THEME"
-      ENABLE_CORRECTION="true"
-      CORRECT_IGNORE="[_|.]*"
-      plugins=($DEFAULT_PLUGINS)
-      zstyle ':omz:update' mode auto
-      source \$ZSH/oh-my-zsh.sh
-      EOF
-          echo ".zshrc rewritten"
-      }
-      
-      create_history_file() {
-          touch "$PLUGIN_DIR/.zsh_history"
-          echo "Empty .zsh_history file created"
-      }
-      
-      set_permissions() {
-          chmod 755 "$PLUGIN_DIR" "$PLUGIN_DIR/.oh-my-zsh"
-          chmod 755 "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-autosuggestions" "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
-          chmod 644 "$PLUGIN_DIR/.zshrc" "$PLUGIN_DIR/.oh-my-zsh/custom/themes/PureUnraid.zsh-theme"
-          chmod 600 "$PLUGIN_DIR/.zsh_history"
-          echo "Permissions set for all files and newly installed plugins"
-      }
-      
-      restart_ttyd() {
-          pidof ttyd | xargs -r kill && ttyd -p 7681 -i lo zsh &
-          echo "ttyd restarted"
-      }
-      
-      main() {
-          prepare_slackware_packages
-          install_oh_my_zsh
-          create_theme
-          install_plugins
-          rewrite_zshrc
-          create_history_file
-          set_permissions
-          restart_ttyd
-          echo "Installation completed. Please run the start_ohmyzsh.sh script on the next system startup."
-      }
-      
-      main
+      <![CDATA[
+      echo ""
+      echo "-----------------------------------------------------------"
+      echo " Plugin &name; is installed."
+      echo " Copyright 2024, &author;"
+      echo " Version: &version;"
+      echo "-----------------------------------------------------------"
+      ]]>
       
     </INLINE>
   </FILE>
 
-  <FILE method="remove">
+  <FILE Method="remove" Run="/bin/bash">
     <INLINE>
+      <![CDATA[
       # Remove script here
       removepkg &name;-&version;
       rm -rf &plugDir;
-      rm -f /boot/config/plugins/&name;/&flash
+      rm -f &pluginDir;/&flash
+      ]]>
     </INLINE>
   </FILE>
 </PLUGIN>
