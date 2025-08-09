@@ -41,7 +41,7 @@
       
       get_latest_version() {
           local package=$1
-          local latest_version=$(curl -s $SLACKWARE_URL | grep -oP "${package}-[0-9.]+-(x86_64|noarch)-[0-9]+\.txz" | sort -V | tail -n1)
+          local latest_version=$(curl -s $SLACKWARE_URL | grep -oP "${package}-[0-9a-z.]+-(x86_64|noarch)-[0-9]+\.txz" | sort -V | tail -n1)
           if [ -z "$latest_version" ]; then
               echo "Error: No version of $package found"
               return 1
