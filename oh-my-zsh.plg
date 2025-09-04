@@ -136,7 +136,7 @@
     <INLINE>
       <![CDATA[
       export ZSH="/root/.oh-my-zsh"
-      ZSH_THEME="PureUnraid"
+      ZSH_THEME="robbyrussell"
       ENABLE_CORRECTION="true"
       CORRECT_IGNORE="[_|.]*"
       plugins=(git docker copypath copyfile copybuffer dirhistory zsh-autosuggestions zsh-syntax-highlighting sudo history tmux)
@@ -182,7 +182,6 @@
       set_permissions() {
           chmod 755 "$PLUGIN_DIR" "$PLUGIN_DIR/.oh-my-zsh"
           chmod 755 "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-autosuggestions" "$PLUGIN_DIR/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
-          chmod 644 "$PLUGIN_DIR/.zshrc" "$PLUGIN_DIR/.oh-my-zsh/custom/themes/PureUnraid.zsh-theme"
           chmod 600 "$PLUGIN_DIR/.zsh_history"
           echo "Permissions set for all files and newly installed plugins"
       }
@@ -204,26 +203,6 @@
       }
       
       main
-      ]]>
-      
-    </INLINE>
-  </FILE>
-
-  <FILE Name="&pluginDir;/.oh-my-zsh/custom/themes/PureUnraid.zsh-theme">
-    <INLINE>
-      <![CDATA[
-      local return_code="%(?..%F{red}%? %f)"
-      
-      PROMPT='%F{208}{ %c } %F{green}$(git rev-parse --abbrev-ref HEAD 2> /dev/null || echo "")%f %F{yellow}%(!.⚡.»)%f '
-      
-      PROMPT2='%F{yellow}\\ %f'
-      
-      RPS1='%F{white}%~%f ${return_code}'
-      
-      ZSH_THEME_GIT_PROMPT_PREFIX="%f:: %F{cyan}("
-      ZSH_THEME_GIT_PROMPT_SUFFIX=")%f "
-      ZSH_THEME_GIT_PROMPT_CLEAN=""
-      ZSH_THEME_GIT_PROMPT_DIRTY="%F{red}*%F{cyan}"   
       ]]>
       
     </INLINE>
