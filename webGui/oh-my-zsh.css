@@ -1,0 +1,23 @@
+/* Responsive styles for oh-my-zsh plugin page */
+:root{ --ohmz-accent: var(--primary,#007bff); --ohmz-bg: var(--bg,#fff); --ohmyz-muted:#6c757d; }
+#ohmyzsh-settings .page-title h1{ font-size:1.25rem; margin:0 0 0.5rem 0; }
+#ohmyzsh-settings .tile{ background:var(--ohmz-bg); border-radius:6px; box-shadow:0 0 0 1px rgba(0,0,0,0.04); margin-bottom:1rem; }
+.tile-header{ display:flex; align-items:center; justify-content:space-between; padding:.75rem 1rem; }
+.tile-header-left{ display:flex; align-items:center; gap:.75rem; }
+.tile-header-main{ display:flex; flex-direction:column; }
+.tile-title{ font-weight:600; font-size:1rem; }
+.tile-subtitle{ color:var(--ohmz-muted); font-size:.85rem; }
+.tile-header-right{ display:flex; gap:.5rem; align-items:center; }
+.tile-content{ padding:1rem; }
+.table-wrapper{ overflow:auto; -webkit-overflow-scrolling:touch; }
+.ohmyzsh-table{ width:100%; border-collapse:collapse; }
+.ohmyzsh-table th, .ohmyzsh-table td{ text-align:left; padding:.5rem; border-bottom:1px solid rgba(0,0,0,0.06); }
+.ohmyzsh-actions{ margin-top:.75rem; color:var(--ohmz-muted); font-size:.95rem; }
+
+@media (max-width:720px){
+  .tile-header{ flex-direction:column; align-items:flex-start; gap:.5rem; }
+  .tile-header-right{ width:100%; justify-content:flex-end; }
+  .tile-subtitle{ font-size:.8rem; }
+  .ohmyzsh-table th, .ohmyzsh-table td{ font-size:.9rem; }
+  .tile{ padding:.5rem; }
+}
